@@ -4,6 +4,17 @@ VINDTA reCAlk
 *VINTDA recalculate diC and Alkalinity*
 
 
+INFORMATION
+-----------
+- Version: 0.2
+- Author:  Luke Gregor
+- Email:   lukegre@gmail.com
+- Date:    2018-06-14
+
+This script was written independently and was not funded by the
+CSIR (where Luke was working at the time of writing the code).
+
+
 USAGE
 -----
 This script is for reading in output from a VINDTA.
@@ -39,13 +50,4 @@ TO DO
 - write additional info in the output excel file.
 
 
-INFORMATION
------------
-Version: 0.2
-Author:  Luke Gregor
-Email:   lukegre@gmail.com
-Date:    2018-06-14
-
-This script was written independently and was not funded by the
-CSIR (where Luke was working at the time of writing the code).
 """
