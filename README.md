@@ -16,7 +16,7 @@ Please acknkowledge this code when you use it.
 
 USAGE
 -----
-This script is for reading in output from a VINDTA.
+This script is for recalculating in output from a VINDTA.
 
 1. Read in the .dbs file and associated .dat files with the `dbs_to_excel()` function. The script creates an excel file if a  filename is given, else only a `pandas.DataFrame` is returned.
 2. Columns for nutrients are added to the excel file. These should be filled out before running the second recalculation step where CRMs are used to calibrate the data.
