@@ -1,4 +1,3 @@
-"""
 VINDTA reCAlk
 =============
 *VINTDA recalculate diC and Alkalinity*
@@ -10,9 +9,9 @@ INFORMATION
 - Author:  Luke Gregor
 - Email:   lukegre@gmail.com
 - Date:    2018-06-14
+- Institution: Council for Scientific and Industrial Research
 
-This script was written independently and was not funded by the
-CSIR (where Luke was working at the time of writing the code).
+Please acknkowledge this code when you use it.
 
 
 USAGE
@@ -38,6 +37,3 @@ TO DO
 -----
 - add documentation for the functions. A little sparse at the moment.
 - write additional info in the output excel file.
-
-
-"""

@@ -6,3 +6,5 @@ vindta_reCAlk/__pycache__/
 *.pyc
 
 *.xlsx
+
+\.ipynb_checkpoints/
