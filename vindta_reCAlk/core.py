@@ -9,31 +9,41 @@ import numpy as np
 from datetime import datetime
 _warnings.filterwarnings("ignore", category=RuntimeWarning)
 
+FileNotFoundError = IOError if "FileNotFoundError" not in locals() else FileNotFoundError
+
 
 def main():
     pass
 
 
-def dbs_to_excel(dbs_filename, datfiles_dir, xls_filename=None, acidconcL=0.1, aciddens=1.02266027, pipVol=97.846, pKchoice=13, po4=0.5, sio4=2.5, factorCT=1.0, pK1=5.0, pK_constant=1.0, verbose=False):
+def dbs_to_excel(dbs_filename, datfiles_dir,
+                 xls_filename=None, acidconcL=0.1, aciddens=1.02266027,
+                 pipVol=97.846, pKchoice=13, po4=0.5, sio4=2.5,
+                 factorCT=1.0, pK1=5.0, pK_constant=1.0, verbose=False,
+                 header=('runtype', 'bottle', 'station', 'cast', 'niskin',
+                         'depth', 'temp', 'salt', 'counts', 'runtime', 'dic',
+                         'factorCT', 'blank', 'RecalcCT', 'lastCRMCT', 'CRMCT',
+                         'lastCRMAT', 'CRMAT', 'batch', 'alk', 'RecalcAT', 'rms',
+                         'calcID', 'acidconcL', 'aciddens', 'pipVol', 'comment',
+                         'lat', 'lon', 'date', 'time', 'CellID')):
+
     import inspect
     from datetime import datetime as dt
 
+    # get the keyword arguments that have a default value
+    # keyword arguements are identified by the number of values with defaults
+    argspec = inspect.getargspec(dbs_to_excel)
+    kwargs = argspec.args[-len(argspec.defaults):]
+    kwargs.remove('header')
+
     data = []
-    header = (  # renames the columns to be pandas compatible
-        'runtype', 'bottle', 'station', 'cast',
-        'niskin', 'depth', 'temp', 'salt', 'counts', 'runtime',
-        'dic', 'factorCT', 'blank', 'RecalcCT', 'lastCRMCT',
-        'CRMCT', 'lastCRMAT', 'CRMAT', 'batch', 'alk', 'RecalcAT',
-        'rms', 'calcID', 'acidconcL', 'aciddens', 'pipVol',
-        'comment', 'lat', 'lon', 'date', 'time', 'CellID',
-    )
 
     with open(dbs_filename) as dbs:
         for line in dbs:
             if line.startswith('bottle'):
                 data += line.strip().split('\t'),
 
-    df = pd.DataFrame(data, columns=header, dtype=float)
+    df = pd.DataFrame(data, columns=locals()['header'], dtype=float)
 
     fmt = '%m/%d/%y %H:%M'
     df['analysis_date'] = df.date + ' ' + df.time
@@ -48,11 +58,8 @@ def dbs_to_excel(dbs_filename, datfiles_dir, xls_filename=None, acidconcL=0.1, a
     fname = datfiles_dir + '{station:g}-{cast:g}  {niskin:g}  ({depth:g}){bottle}.dat'
     df['datfilename'] = [fname.format(**df.loc[i].to_dict()) for i in df.index]
 
-    # get the keyword arguments that have a default value
-    # keyword arguements are identified by the number of values with defaults
-    argspec = inspect.getargspec(dbs_to_excel)
-    kwargs = argspec.args[-len(argspec.defaults):]
-
+    # assign the keyword arguments to the dataframe.
+    # The wrong keywords have been removed earlier (header)
     for key in kwargs:
         df.loc[:, key] = locals()[key]
 
@@ -62,7 +69,7 @@ def dbs_to_excel(dbs_filename, datfiles_dir, xls_filename=None, acidconcL=0.1, a
 
         err = ''
         try:
-            vols, emfs, tempC = _read_dat(df.datfilename[i])
+            vols, emfs, tempC = read_dat(df.datfilename[i])
 
             conc, ALK, pK1, pKstr, resid = recalcAlk_leastsq(
                 df.salt[i], tempC,
@@ -91,12 +98,12 @@ def dbs_to_excel(dbs_filename, datfiles_dir, xls_filename=None, acidconcL=0.1, a
     df.loc[:, 'RecalcCT'] = df.dic * df.factorCT
 
     if xls_filename:
-        _write_dbs_to_excel(df, xls_filename, dbs_filename)
+        write_dbs_to_excel(df, xls_filename, dbs_filename)
 
     return df
 
 
-def _write_dbs_to_excel(data, xls_filename, dbs_filename="[not given]"):
+def write_dbs_to_excel(data, xls_filename, dbs_filename="[not given]"):
 
     time = datetime.today().strftime("%d %B %Y at %H:%M")
     readme = [
@@ -113,15 +120,17 @@ def _write_dbs_to_excel(data, xls_filename, dbs_filename="[not given]"):
 
 def recalculate_CO2_from_excel(xls_filename):
 
-    print("""Note that this function should only be used once you have run the
-        VINDTA_recALK.dbs_to_excel. Moreover, you need to fill in the data
+    print("""
+        Note that this function should only be used once you have run the
+        VINDTA_recALK.dbs_to_excel. You need to fill in the in-situ
+        temperature, salinity, and nutrient data.
         """)
 
     df = pd.read_excel(xls_filename, 'initial_calc')
 
-    df = _calc_crm_acidconc(df)
+    df = calc_crm_acidconc(df)
     df.loc[:, 'factorCT'] = df.CRMCT / df.dic
-    df = _get_batch_indicies(df)
+    df = get_batch_indicies(df)
 
     for b in df.analysis_batch.unique():
         batch = df.analysis_batch == b
@@ -141,7 +150,7 @@ def recalculate_CO2_from_excel(xls_filename):
 
         err = ''
         try:
-            vols, emfs, tempC = _read_dat(df.datfilename[i])
+            vols, emfs, tempC = read_dat(df.datfilename[i])
             conc, ALK, pK1, pKstr, resid = recalcAlk_leastsq(
                 df.salt[i], tempC,
                 df.po4[i], df.sio4[i],
@@ -177,7 +186,7 @@ def recalculate_CO2_from_excel(xls_filename):
     return df
 
 
-def _read_dat(dat_fname):
+def read_dat(dat_fname):
     raw = open(dat_fname, 'r').readlines()
     dat = np.array([line.split() for line in raw[2:]]).T.astype(float)
     vols, emfs, tempC = dat
@@ -187,7 +196,7 @@ def _read_dat(dat_fname):
     return vols, emfs, tempC
 
 
-def _calc_crm_acidconc(df):
+def calc_crm_acidconc(df):
     """
     Calculate a new Alkalinity acid factor/concentration for CRMs.
     1. Alkalinity is initially calculated and a difference from the CRM and measured alkalinity
@@ -200,7 +209,7 @@ def _calc_crm_acidconc(df):
         bot = df.datfilename[i]
         if 'CRM' in bot:
             try:
-                vols, emfs, tempC = _read_dat(df.datfilename[i])
+                vols, emfs, tempC = read_dat(df.datfilename[i])
                 _, ALK, _, _, _ = recalcAlk_leastsq(
                     df.salt[i], tempC,
                     df.po4[i],
@@ -242,7 +251,7 @@ def _calc_crm_acidconc(df):
     return df
 
 
-def _get_batch_indicies(df):
+def get_batch_indicies(df):
 
     # samples > 5hrs apart (300 min)
     new_batch_inds = np.abs(df.analysis_date.diff().astype('timedelta64[m]')) > 300
@@ -789,8 +798,8 @@ def recalcAlk_leastsq(sal, tempC, po4, si, samplevol, acidconcKG, aciddens, Vols
 if __name__ == '__main__':
 
     print(os.getcwd())
-    dbs_filename = './test_data/Gough2013.dbs'
-    datfiles_dir = './test_data/'
-    exl_filename = './test_data/Gough2013.xlsx'
+    dbs_filename = '../test_data/Gough2013.dbs'
+    datfiles_dir = '../test_data/'
+    exl_filename = '../test_data/Gough2013.xlsx'
 
     df = dbs_to_excel(dbs_filename, datfiles_dir, exl_filename, verbose=True)
