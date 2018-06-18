@@ -16,7 +16,7 @@ def main():
     pass
 
 
-def dbs_to_excel(dbs_filename, datfiles_dir,
+def dbs_to_excel(dbs_filename, datfiles_dir, fmt='%m/%d/%y %H:%M',
                  xls_filename=None, acidconcL=0.1, aciddens=1.02266027,
                  pipVol=97.846, pKchoice=13, po4=0.5, sio4=2.5,
                  factorCT=1.0, pK1=5.0, pK_constant=1.0, verbose=False,
@@ -35,6 +35,18 @@ def dbs_to_excel(dbs_filename, datfiles_dir,
     argspec = inspect.getargspec(dbs_to_excel)
     kwargs = argspec.args[-len(argspec.defaults):]
     kwargs.remove('header')
+    kwargs.remove('fmt')
+
+    compulsory_header_cols = set([
+        'runtype', 'station', 'cast', 'niskin', 'depth', 'bottle',
+        'acidconcL', 'RecalcAT', 'rms', 'pK1', 'pK_constant', 'pKchoice',
+        'po4', 'sio4', 'pipVol', 'acidconcL', 'aciddens',
+        'pKchoice', 'dic', 'factorCT'
+    ])
+
+    missing_header_cols = compulsory_header_cols - set(list(kwargs) + list(header))
+    if any(missing_header_cols):
+        raise UserWarning("The header is missing compulsory header columns: ", str(missing_header_cols))
 
     data = []
 
@@ -43,9 +55,8 @@ def dbs_to_excel(dbs_filename, datfiles_dir,
             if line.startswith('bottle'):
                 data += line.strip().split('\t'),
 
-    df = pd.DataFrame(data, columns=locals()['header'], dtype=float)
+    df = pd.DataFrame(data, columns=header)
 
-    fmt = '%m/%d/%y %H:%M'
     df['analysis_date'] = df.date + ' ' + df.time
     df['analysis_date'] = df.analysis_date.apply(lambda d: dt.strptime(d, fmt))
 
@@ -55,7 +66,7 @@ def dbs_to_excel(dbs_filename, datfiles_dir,
     df.loc[:, 'bottle'] = df.bottle.str.strip()
 
     # create filenames for dat
-    fname = datfiles_dir + '{station:g}-{cast:g}  {niskin:g}  ({depth:g}){bottle}.dat'
+    fname = datfiles_dir + '/{station:s}-{cast:s}  {niskin:s}  ({depth:s}){bottle}.dat'
     df['datfilename'] = [fname.format(**df.loc[i].to_dict()) for i in df.index]
 
     # assign the keyword arguments to the dataframe.
@@ -72,13 +83,15 @@ def dbs_to_excel(dbs_filename, datfiles_dir,
             vols, emfs, tempC = read_dat(df.datfilename[i])
 
             conc, ALK, pK1, pKstr, resid = recalcAlk_leastsq(
-                df.salt[i], tempC,
-                df.po4[i], df.sio4[i],
-                df.pipVol[i],
-                df.acidconcL[i],
-                df.aciddens[i],
+                try_float(df.salt[i]),
+                tempC,
+                try_float(df.po4[i]),
+                try_float(df.sio4[i]),
+                try_float(df.pipVol[i]),
+                try_float(df.acidconcL[i]),
+                try_float(df.aciddens[i]),
                 vols, emfs,
-                df.pKchoice[i])
+                int(df.pKchoice[i]))
 
             # Assign new values to the matrix
             var_names = ['acidconcL', 'RecalcAT', 'rms', 'pK1', 'pK_constant']
@@ -95,7 +108,7 @@ def dbs_to_excel(dbs_filename, datfiles_dir,
             print(err)
         df.loc[i, 'comment'] = err
 
-    df.loc[:, 'RecalcCT'] = df.dic * df.factorCT
+    df.loc[:, 'RecalcCT'] = df.dic.apply(try_float) * df.factorCT.apply(try_float)
 
     if xls_filename:
         write_dbs_to_excel(df, xls_filename, dbs_filename)
@@ -184,6 +197,13 @@ def recalculate_CO2_from_excel(xls_filename):
     writer.save()
 
     return df
+
+
+def try_float(s):
+    try:
+        return float(s)
+    except:
+        return np.NaN
 
 
 def read_dat(dat_fname):
@@ -798,8 +818,8 @@ def recalcAlk_leastsq(sal, tempC, po4, si, samplevol, acidconcKG, aciddens, Vols
 if __name__ == '__main__':
 
     print(os.getcwd())
-    dbs_filename = '../test_data/Gough2013.dbs'
-    datfiles_dir = '../test_data/'
-    exl_filename = '../test_data/Gough2013.xlsx'
+    dbs_filename = '../CSIR.dbs'
+    datfiles_dir = '../CSIR'
+    exl_filename = '../vindta_reCAlk/Win2017_test.xlsx'
 
     df = dbs_to_excel(dbs_filename, datfiles_dir, exl_filename, verbose=True)
