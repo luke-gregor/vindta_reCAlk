@@ -80,8 +80,8 @@ def dbs_to_excel(dbs_filename, datfiles_dir, fmt='%m/%d/%y %H:%M',
 
         err = ''
         try:
-            vols, emfs, tempC = read_dat(df.datfilename[i])
-
+            vols, emfs, tempC, msg = read_dat(df.datfilename[i])
+            err += msg
             conc, ALK, pK1, pKstr, resid = recalcAlk_leastsq(
                 try_float(df.salt[i]),
                 tempC,
@@ -163,7 +163,8 @@ def recalculate_CO2_from_excel(xls_filename):
 
         err = ''
         try:
-            vols, emfs, tempC = read_dat(df.datfilename[i])
+            vols, emfs, tempC, msg = read_dat(df.datfilename[i])
+            err += msg + ' '
             conc, ALK, pK1, pKstr, resid = recalcAlk_leastsq(
                 df.salt[i], tempC,
                 df.po4[i], df.sio4[i],
@@ -210,10 +211,12 @@ def read_dat(dat_fname):
     raw = open(dat_fname, 'r').readlines()
     dat = np.array([line.split() for line in raw[2:]]).T.astype(float)
     vols, emfs, tempC = dat
+    msg = ''
     if all(vols == 0):
         vols = np.arange(0, 0.15 * 35, 0.15)[:len(emfs)]
+        msg += 'bad .dat - volumes generaged'
 
-    return vols, emfs, tempC
+    return vols, emfs, tempC, msg
 
 
 def calc_crm_acidconc(df):
