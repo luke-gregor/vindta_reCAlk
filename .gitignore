@@ -8,3 +8,7 @@ vindta_reCAlk/__pycache__/
 *.xlsx
 
 \.ipynb_checkpoints/
+
+\.vscode/
+
+test_data/

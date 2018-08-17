@@ -16,8 +16,44 @@ def main():
     pass
 
 
-def dbs_to_excel(dbs_filename, datfiles_dir, fmt='%m/%d/%y %H:%M',
-                 xls_filename=None, acidconcL=0.1, aciddens=1.02266027,
+def dbs_has_min_columns(column_name_list):
+    """
+    Function determines if DBS headers passed contain the required
+    columns.
+    """
+
+    compulsory_header_cols = set([
+        'runtype',
+        'station',
+        'cast',
+        'niskin',
+        'depth',
+        'bottle',
+        'date',
+        'time',
+        'temp',
+        'salt',
+        'po4',
+        'sio4',
+        'acidconcL',
+        'pipVol',
+        'aciddens',
+        'pKchoice',
+    ])
+
+    missing_header_cols = compulsory_header_cols - set(column_name_list)
+
+    if any(missing_header_cols):
+        raise UserWarning(
+            "The header is missing compulsory header columns: " +
+            str(missing_header_cols).replace('{', '').replace('}', ''))
+    else:
+        return True
+
+
+def dbs_to_excel(dbs_filename, datfiles_dir, xls_filename,
+                 date_fmt='%m/%d/%y %H:%M',
+                 acidconcL=0.1, aciddens=1.02266027,
                  pipVol=97.846, pKchoice=13, po4=0.5, sio4=2.5,
                  factorCT=1.0, pK1=5.0, pK_constant=1.0, verbose=False,
                  header=('runtype', 'bottle', 'station', 'cast', 'niskin',
@@ -35,21 +71,9 @@ def dbs_to_excel(dbs_filename, datfiles_dir, fmt='%m/%d/%y %H:%M',
     argspec = inspect.getargspec(dbs_to_excel)
     kwargs = argspec.args[-len(argspec.defaults):]
     kwargs.remove('header')
-    kwargs.remove('fmt')
-
-    compulsory_header_cols = set([
-        'runtype', 'station', 'cast', 'niskin', 'depth', 'bottle',
-        'acidconcL', 'RecalcAT', 'rms', 'pK1', 'pK_constant', 'pKchoice',
-        'po4', 'sio4', 'pipVol', 'acidconcL', 'aciddens',
-        'pKchoice', 'dic', 'factorCT'
-    ])
-
-    missing_header_cols = compulsory_header_cols - set(list(kwargs) + list(header))
-    if any(missing_header_cols):
-        raise UserWarning("The header is missing compulsory header columns: ", str(missing_header_cols))
+    kwargs.remove('date_fmt')
 
     data = []
-
     with open(dbs_filename) as dbs:
         for line in dbs:
             if line.startswith('bottle'):
@@ -57,8 +81,10 @@ def dbs_to_excel(dbs_filename, datfiles_dir, fmt='%m/%d/%y %H:%M',
 
     df = pd.DataFrame(data, columns=header)
 
+    dbs_has_min_columns(np.r_[df.columns.values, kwargs])
+
     df['analysis_date'] = df.date + ' ' + df.time
-    df['analysis_date'] = df.analysis_date.apply(lambda d: dt.strptime(d, fmt))
+    df['analysis_date'] = df.analysis_date.apply(lambda d: dt.strptime(d, date_fmt))
 
     # reorder analysis_date to the end of the DataFrame and find only bottles
     df = df[df.columns.tolist()[1:] + df.columns[0:1].tolist()]
@@ -74,9 +100,11 @@ def dbs_to_excel(dbs_filename, datfiles_dir, fmt='%m/%d/%y %H:%M',
     for key in kwargs:
         df.loc[:, key] = locals()[key]
 
+    if verbose:
+        print('INITIAL CALCULATION\n' + '-' * 60)
     for i in df.index:  # every line
         if verbose:
-            print(df.datfilename[i], end='')
+            print(pretty_path(df.datfilename[i]), end='')
 
         err = ''
         try:
@@ -97,12 +125,12 @@ def dbs_to_excel(dbs_filename, datfiles_dir, fmt='%m/%d/%y %H:%M',
             var_names = ['acidconcL', 'RecalcAT', 'rms', 'pK1', 'pK_constant']
             df.loc[i, var_names] = conc, ALK, np.mean(resid), pK1, pKstr
 
-        except ValueError:
-            err += ": Something wrong with dat file"
-        except FileNotFoundError:
+        except ValueError as e:
+            err += ": Something wrong with dat file ({})".format(e)
+        except FileNotFoundError as e:
             err += ": File does not exist"
-        except IndexError:
-            err += ": Error in recalculation"
+        except IndexError as e:
+            err += ": Error in recalculation ({})".format(e)
 
         if verbose:
             print(err)
@@ -137,11 +165,12 @@ def recalculate_CO2_from_excel(xls_filename):
         Note that this function should only be used once you have run the
         VINDTA_recALK.dbs_to_excel. You need to fill in the in-situ
         temperature, salinity, and nutrient data.
-        """)
+        """.replace('  ', '')[1:])
 
     df = pd.read_excel(xls_filename, 'initial_calc')
 
     df = calc_crm_acidconc(df)
+    print()
     df.loc[:, 'factorCT'] = df.CRMCT / df.dic
     df = get_batch_indicies(df)
 
@@ -158,8 +187,9 @@ def recalculate_CO2_from_excel(xls_filename):
     df.loc[:, 'acidconcL'] = df.acidconcL.interpolate()
     df.loc[:, 'factorCT'] = df.factorCT.interpolate()
 
+    print('\nRECALCULATING ALL BOTTLES\n' + '-' * 60)
     for i in df.index:  # every line
-        print(df.datfilename[i], end='')
+        print(pretty_path(df.datfilename[i]), end='')
 
         err = ''
         try:
@@ -196,6 +226,7 @@ def recalculate_CO2_from_excel(xls_filename):
 
     df.to_excel(writer, 'reculculated', index=False)
     writer.save()
+    print('=' * 60)
 
     return df
 
@@ -228,11 +259,13 @@ def calc_crm_acidconc(df):
     4. Repeat steps 2 and 3 until the Alkalinity difference is < 0.001
     """
 
+    print('\nCORRECTING CRMs\n' + '-' * 70)
     for i in df.index:
         bot = df.datfilename[i]
-        if 'CRM' in bot:
+        if 'crm' in bot.lower():
+            bot_print = pretty_path(bot)
             try:
-                vols, emfs, tempC = read_dat(df.datfilename[i])
+                vols, emfs, tempC, _ = read_dat(df.datfilename[i])
                 _, ALK, _, _, _ = recalcAlk_leastsq(
                     df.salt[i], tempC,
                     df.po4[i],
@@ -266,11 +299,12 @@ def calc_crm_acidconc(df):
                     if df['calcID'][i] >= 30:
                         raise (Exception,
                                'acid factor not converging. Check pipVol, aciddens')
-                print(bot, 'after', int(df['calcID'][i]), 'iterations')
-            except ValueError:
-                print(bot, ": Something wrong with dat file")
+                print(bot_print, 'after', int(df['calcID'][i]), 'iterations')
+            except ValueError as e:
+                print(bot_print, ": Something wrong with dat file", sep='')
             except FileNotFoundError:
-                print(bot, ": does not exist")
+                print(bot_print, ": does not exist", sep='')
+    print('=' * 70)
     return df
 
 
@@ -281,6 +315,18 @@ def get_batch_indicies(df):
     df['analysis_batch'] = new_batch_inds.cumsum()
 
     return df
+
+
+def pretty_path(path, nice_len=60):
+    import numpy as np
+
+    nice_len -= 4
+
+    locs = [i for i, c in enumerate(path[::-1]) if c == '/']
+    diff = np.array(locs) - nice_len
+    mindif_idx = np.argmin(np.abs(diff))
+    idx = locs[mindif_idx]
+    return '.../' + path[-idx:]
 
 
 def recalcAlk_leastsq(sal, tempC, po4, si, samplevol, acidconcKG, aciddens, Vols, Emfs, pKconst):
