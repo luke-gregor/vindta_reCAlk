@@ -1,0 +1,2 @@
+recursive-include vindta_reCAlk/templates *
+recursive-include vindta_reCAlk/static *

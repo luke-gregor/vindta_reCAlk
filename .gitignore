@@ -1,10 +1,23 @@
 
 vindta_reCAlk/__pycache__/
-
 .DS_Store
 
 *.pyc
-
 *.xlsx
 
 \.ipynb_checkpoints/
+\.vscode/
+
+test_data/
+
+*.pyc
+MANIFEST
+
+#Project files
+[Bb]uild/
+[Dd]ist/
+vidta_reCAlk.egg-info/
+
+Pipfile\.lock
+
+vindta_reCAlk\.egg-info/

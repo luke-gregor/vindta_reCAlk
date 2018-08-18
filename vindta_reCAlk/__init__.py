@@ -50,5 +50,10 @@ This script was written independently and was not funded by the
 CSIR (where Luke was working at the time of writing the code).
 """
 
-from .core import dbs_to_excel
-from .core import recalculate_CO2_from_excel
+from flask import Flask
+from .views import vindta
+
+app = Flask(__name__, static_folder='static', template_folder='templates')
+app.secret_key = 'super secret key'
+
+app.register_blueprint(vindta)

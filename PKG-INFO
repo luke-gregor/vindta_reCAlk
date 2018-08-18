@@ -1,0 +1,19 @@
+Metadata-Version: 1.0
+Name: vindta_reCAlk
+Version: 0.1.2
+Summary: Recalculate VINDTA 3C data
+Home-page: http://luke-gregor.github.io
+Author: Luke Gregor
+Author-email: lukegre@gmail.com
+License: MIT License
+Description: # VINDTA Recalculate
+
+        ## Usage
+        There should be a command line function available after installation:
+
+            vindta_reCAlk
+
+        if this fails run:
+
+            pyhton -m vindta_reCAlk
+Platform: UNKNOWN
