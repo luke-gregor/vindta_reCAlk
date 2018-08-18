@@ -1,39 +1,30 @@
 VINDTA reCAlk
 =============
-*VINTDA recalculate diC and Alkalinity*
+**VINDTA reCALK** is a Python 3.6+ package that recalculates and corrects Dissoled Inorganic Carbon and Total Alkalinity from the Certified Reference Materials run on a VINDTA 3C.
 
 
-INFORMATION
------------
+ABOUT
+-----
 - Version: 0.2
 - Author:  Luke Gregor
 - Email:   lukegre@gmail.com
-- Date:    2018-06-14
-- Institution: Council for Scientific and Industrial Research
+- Date:    2018-08-18
 
 Please acknkowledge this code when you use it.
 
 
+INSTALLATION
+------------
+This is a flask application that runs from the terminal. To install the app type `pip install vindta_reCAlk`.
+
+
 USAGE
 -----
-This script is for recalculating in output from a VINDTA.
+<img title="screenshot of the app" src="vindta_reCAlk_screenshot_01.png" style="border-style: solid; boder-width: 1px; border-color: #CCC">
+The banner at the top of the app will provide instructions for the general usage. Below are the steps.
 
-1. Read in the .dbs file and associated .dat files with the `dbs_to_excel()` function. The script creates an excel file if a  filename is given, else only a `pandas.DataFrame` is returned.
-2. Columns for nutrients are added to the excel file. These should be filled out before running the second recalculation step where CRMs are used to calibrate the data.
-3. Run the CRM recalculation step with the function `recalculate_CO2_from_excel`. The recalculation is performed without you having to do anything :) The data will be saved in the excel file in a second tab.
-
-
-NOTES
------
-This was written for the CSIR's VINDTA #18 and #35.
-There are thus headers that may need to be changed.
-These headers can be changed manually in the dbs_to_excel
-function using the header keyword argument. Be very
-careful when changing this. It needs to match your
-VINDTA's column headers.
-
-
-TO DO
------
-- add documentation for the functions. A little sparse at the moment.
-- write additional info in the output excel file.
+1. To run the app type `vindta_reCAlk`. This should launch a browser tab that runs from the terminal window. If you close the terminal window, the app will stop.
+2. Enter the full path names of the `dbs` file, a folder containing the `dat` titration files. An `xlsx` path also needs to be entered to save the output to. Click on the button to `Create excel from DBS`. The page may not respond for a while - this is just the process running in the background. A textbox will show at the bottom of the page with a log of the processing.
+3. Open the Excel file and enter the Silicate, Phosphate, Temperature and Salinity data. Be sure to check that the standard CRM DIC and TA batch values are correct.
+4. Enter the name of the Excel file and click on `Recalculate DIC and TA`. The page will be inactive while the process runs in the background (rarely more than 15 seconds). The output will be saved to the excel file. The processing log will also appear in the textbox at the bottom of the page.
+<img title="screenshot of the app" src="vindta_reCAlk_screenshot_02.png" style="border-style: solid; boder-width: 1px; border-color: #CCC">
