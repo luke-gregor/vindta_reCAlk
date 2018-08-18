@@ -39,6 +39,10 @@ def dbs_has_min_columns(column_name_list):
         'pipVol',
         'aciddens',
         'pKchoice',
+        'CRMCT',
+        'CRMAT',
+        'calcID',
+        'DIC',
     ])
 
     missing_header_cols = compulsory_header_cols - set(column_name_list)
@@ -57,7 +61,7 @@ def dbs_to_excel(dbs_filename, datfiles_dir, xls_filename,
                  pipVol=97.846, pKchoice=13, po4=0.5, sio4=2.5,
                  factorCT=1.0, pK1=5.0, pK_constant=1.0, verbose=False,
                  header=('runtype', 'bottle', 'station', 'cast', 'niskin',
-                         'depth', 'temp', 'salt', 'counts', 'runtime', 'dic',
+                         'depth', 'temp', 'salt', 'counts', 'runtime', 'DIC',
                          'factorCT', 'blank', 'RecalcCT', 'lastCRMCT', 'CRMCT',
                          'lastCRMAT', 'CRMAT', 'batch', 'alk', 'RecalcAT', 'rms',
                          'calcID', 'acidconcL', 'aciddens', 'pipVol', 'comment',
@@ -74,7 +78,7 @@ def dbs_to_excel(dbs_filename, datfiles_dir, xls_filename,
     kwargs.remove('date_fmt')
 
     data = []
-    with open(dbs_filename) as dbs:
+    with open(dbs_filename, encoding='latin9') as dbs:
         for line in dbs:
             if line.startswith('bottle'):
                 data += line.strip().split('\t'),
@@ -84,7 +88,14 @@ def dbs_to_excel(dbs_filename, datfiles_dir, xls_filename,
     dbs_has_min_columns(np.r_[df.columns.values, kwargs])
 
     df['analysis_date'] = df.date + ' ' + df.time
-    df['analysis_date'] = df.analysis_date.apply(lambda d: dt.strptime(d, date_fmt))
+    try:
+        df['analysis_date'] = df.analysis_date.apply(lambda d: dt.strptime(d, date_fmt))
+    except ValueError as e:
+        for i in df.index:
+            try:
+                dt.strptime(df.loc[i, 'analysis_date'], date_fmt)
+            except ValueError as e:
+                raise ValueError('Invalid date found at {} ({})'.format(df.loc[i, 'bottle'], str(e)))
 
     # reorder analysis_date to the end of the DataFrame and find only bottles
     df = df[df.columns.tolist()[1:] + df.columns[0:1].tolist()]
@@ -122,6 +133,7 @@ def dbs_to_excel(dbs_filename, datfiles_dir, xls_filename,
                 int(df.pKchoice[i]))
 
             # Assign new values to the matrix
+            df.loc[i, 'RecalcAT'] = np.nan
             var_names = ['acidconcL', 'RecalcAT', 'rms', 'pK1', 'pK_constant']
             df.loc[i, var_names] = conc, ALK, np.mean(resid), pK1, pKstr
 
@@ -136,7 +148,7 @@ def dbs_to_excel(dbs_filename, datfiles_dir, xls_filename,
             print(err)
         df.loc[i, 'comment'] = err
 
-    df.loc[:, 'RecalcCT'] = df.dic.apply(try_float) * df.factorCT.apply(try_float)
+    df.loc[:, 'RecalcCT'] = df.DIC.apply(try_float) * df.factorCT.apply(try_float)
 
     if xls_filename:
         write_dbs_to_excel(df, xls_filename, dbs_filename)
@@ -171,7 +183,7 @@ def recalculate_CO2_from_excel(xls_filename):
 
     df = calc_crm_acidconc(df)
     print()
-    df.loc[:, 'factorCT'] = df.CRMCT / df.dic
+    df.loc[:, 'factorCT'] = df.CRMCT / df.DIC
     df = get_batch_indicies(df)
 
     for b in df.analysis_batch.unique():
@@ -216,7 +228,7 @@ def recalculate_CO2_from_excel(xls_filename):
             err += ' Error in recalculation'
 
         print(err)
-    df['RecalcCT'] = df.dic * df.factorCT
+    df['RecalcCT'] = df.DIC * df.factorCT
 
     from openpyxl import load_workbook
     book = load_workbook(xls_filename)
@@ -227,6 +239,10 @@ def recalculate_CO2_from_excel(xls_filename):
     df.to_excel(writer, 'reculculated', index=False)
     writer.save()
     print('=' * 60)
+    print()
+
+    time_saved = df.calcID.sum() * 0.75 / 60.
+    print('vindta_reCAlk saved you more than {} hours of your life'.format(time_saved))
 
     return df
 
@@ -234,12 +250,12 @@ def recalculate_CO2_from_excel(xls_filename):
 def try_float(s):
     try:
         return float(s)
-    except:
+    except Exception:
         return np.NaN
 
 
 def read_dat(dat_fname):
-    raw = open(dat_fname, 'r').readlines()
+    raw = open(dat_fname, 'r', encoding='latin9').readlines()
     dat = np.array([line.split() for line in raw[2:]]).T.astype(float)
     vols, emfs, tempC = dat
     msg = ''
@@ -297,9 +313,12 @@ def calc_crm_acidconc(df):
                     df.loc[i, 'calcID'] += 1
 
                     if df['calcID'][i] >= 30:
-                        raise (Exception,
-                               'acid factor not converging. Check pipVol, aciddens')
-                print(bot_print, 'after', int(df['calcID'][i]), 'iterations')
+                        df.loc[i, 'acidconcL'] = np.NaN
+                        break
+                if df.calcID[i] < 30:
+                    print(bot_print, 'after', int(df['calcID'][i]), 'iterations')
+                else:
+                    print(bot_print, 'acid factor not converging after 30 iterations. Values set to NaN')
             except ValueError as e:
                 print(bot_print, ": Something wrong with dat file", sep='')
             except FileNotFoundError:

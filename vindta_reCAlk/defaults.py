@@ -35,9 +35,9 @@ defaults = {
     'header': (
         'runtype', 'bottle', 'station', 'cast', 'niskin',
         'depth', 'temp', 'salt', 'counts', 'runtime',
-        'dic', 'factorCT', 'blank', 'RecalcCT',
+        'DIC', 'factorCT', 'blank', 'RecalcCT',
         'lastCRMCT', 'CRMCT', 'lastCRMAT', 'CRMAT',
-        'batch', 'alk', 'RecalcAT', 'rms', 'calcID',
+        'batch', 'ALK', 'RecalcAT', 'rms', 'calcID',
         'acidconcL', 'aciddens', 'pipVol', 'comment',
         'lat', 'lon', 'date', 'time', 'CellID'),
 }

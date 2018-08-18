@@ -6,3 +6,4 @@ datetime
 inspect
 openpyxl
 scipy
+xlrd

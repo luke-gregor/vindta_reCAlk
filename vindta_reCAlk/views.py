@@ -1,24 +1,13 @@
 
-from flask import Flask, render_template, request, flash, redirect, url_for
-from flask_uploads import UploadSet, configure_uploads
-from core import dbs_to_excel, recalculate_CO2_from_excel
-import inspect
+from flask import render_template, request, flash, Blueprint
+from .calcs import dbs_to_excel, recalculate_CO2_from_excel
 import os
+import traceback
 
-UPLOAD_FOLDER = 'temp_data/'
-VINDTAFILES = ['dat', 'dbs']
+vindta = Blueprint('vindta', __name__)
 
-app = Flask(__name__, template_folder='.')
-app.secret_key = 'super secret key'
-app.config['SESSION_TYPE'] = 'filesystem'
-
-# Configure the image uploading via Flask-Uploads
-vindta = UploadSet('dat', VINDTAFILES, default_dest=lambda s: UPLOAD_FOLDER)
-configure_uploads(app, vindta)
-
-
-@app.route('/', methods=['GET', 'POST'])
-def home_page():
+@vindta.route('/', methods=['GET', 'POST'])
+def index():
 
     if request.method == 'GET':
         kwargs = reset_page()
@@ -29,16 +18,16 @@ def home_page():
         elif "create_excel" in request.form:
             kwargs = create_excel()
         elif 'recalculate':
-            print('here')
             kwargs = recalculate()
 
     return render_template('index.html', **kwargs)
 
 
 def reset_page():
-    number_boxes, dropdown, header = get_rcParams()
+    number_boxes, dropdown, header = get_defaults()
 
-    flash('Enter directory names and change the paths accordingly', category='primary')
+    flash('HELP SHOWN HERE: Enter full paths to files and directory.',
+          category='primary')
 
     return dict(number_defaults=number_boxes,
                 dropdowns=dropdown,
@@ -59,38 +48,56 @@ def create_excel():
         dropdowns=dropdowns)
 
     if check_file_paths(filenames):
+        # redirect sys.stdout to a buffer
+        stdout = sys.stdout
+        sys.stdout = io.StringIO()
         try:
-            # redirect sys.stdout to a buffer
-            stdout = sys.stdout
-            sys.stdout = io.StringIO()
-
             dbs_to_excel(
                 filenames['dbs_file'],
                 filenames['dat_file'],
                 filenames['xls_file'],
                 verbose=True,
                 **defaults)
-            message = "Excel file created: {}".format(filenames['xls_file'])
+            message = (
+                "Excel file created: {}. Add nutrients,"
+                " temperature and salinity data in the "
+                "excel file before the next step."
+            ).format(filenames['xls_file'])
             flash(message, category='primary')
 
-            # get output and restore sys.stdout
-            output = sys.stdout.getvalue().strip()
-            sys.stdout = stdout
-
-            kwargs.update({"stdout": output.splitlines()})
         except Exception as e:
             if "header is missing" in str(e):
                 # compulsory columns are not present
                 flash("COLUMN HEADER ERROR: " + str(e), category='warning')
             elif "columns passed, passed data" in str(e):
                 # Number of columns in header do not match the file
-                flash("COLUMN HEADER ERROR: " + str(e), category='warning')
+                cols = open(filenames['dbs_file']).readline()
+                cols = cols.replace('[', '').replace(']', '')
+                cols = cols.replace('\n', '').split('\t')
+                kwargs.update({"header": cols})
+                flash((
+                    "COLUMN HEADER ERROR: {}. "
+                    "Column headers have been pasted into the text "
+                    "box from the dbs file. Run the function again "
+                    "to find missing compulsory column names.").format(str(e)),
+                    category='warning')
             elif "does not match format" in str(e):
                 # incorrect date format
-                flash('DATE FORMAT ERROR: ' + str(e), category='warning')
+                flash('{}: {}'.format(str(e.__class__.__name__), str(e)), category='warning')
+            elif "'DataFrame' object has no attribute" in str(e):
+                # happens if compulsory header not named properly
+                flash("COLUMN HEADER ERROR: " + str(e), category="warning")
+            elif "Invalid date found at" in str(e):
+                flash("DATE ERROR: " + str(e), category="warning")
             else:
                 raise(e)
 
+        # get output and restore sys.stdout
+        output = sys.stdout.getvalue().strip()
+        sys.stdout = stdout
+        if os.path.isfile(filenames['xls_file']):
+            write_log_to_excel(output, filenames['xls_file'], 'initial_log')
+        kwargs.update({"stdout": output.splitlines()})
     return kwargs
 
 
@@ -110,14 +117,21 @@ def recalculate():
         # redirect sys.stdout to a buffer
         stdout = sys.stdout
         sys.stdout = io.StringIO()
+        try:
+            recalculate_CO2_from_excel(xls)
+            flash("Data recalculated from " + xls, category="primary")
 
-        recalculate_CO2_from_excel(xls)
-        flash("Data recalculated from " + xls, category="primary")
-
+        except Exception as e:
+            if "'DataFrame' object has no attribute" in str(e):
+                flash("COLUMN HEADER ERROR: " + str(e) + "repeat first step with right column names",
+                      category="warning")
+            else:
+                flash(e.__class__.__name__ + ": " + str(e), category='danger')
+                print(traceback.format_exc())
         # get output and restore sys.stdout
         output = sys.stdout.getvalue().strip()
         sys.stdout = stdout
-
+        write_log_to_excel(output, xls, 'recalc_log')
         kwargs.update({"stdout": output.splitlines()})
     else:
         flash("FILE PATH ERROR: The given Excel file name does not exist. "
@@ -126,11 +140,11 @@ def recalculate():
     return kwargs
 
 
-def get_rcParams():
-    from rcVINDTA import defaults as df
+def get_defaults():
+    from .defaults import defaults as rc
     from copy import deepcopy as copy
 
-    defaults = copy(df)
+    defaults = copy(rc)
     number_boxes = {}
     dropdown = {}
 
@@ -156,10 +170,12 @@ def get_user_defaults():
                  "dat_file": form.pop('dat_file')[0],
                  "xls_file": form.pop('xls_file')[0]}
 
-    header = form.pop('header')[0].replace(',', '').splitlines()
+    header = form.pop('header')[0]
+    header = header.replace("'", "").replace("\r\n", '').split(',')
+    header = [h.strip() for h in header if len(h) >= 2]
 
     # make selection the first item of the dropdown lists
-    dd = get_rcParams()[1]
+    dd = get_defaults()[1]
     date_fmt_sel = form.pop('date_fmt')[0]
     pKchoice_sel = form.pop('pKchoice')[0]
     dd['date_fmt'].remove(date_fmt_sel)
@@ -255,10 +271,26 @@ def check_file_paths(filename_dict):
         message += 'Excel root path does not exist.',
 
     if not all_files_good:
-        flash('FILE PATH ERROR: {}'.format(', '.join(message)), category='warning')
+        flash('FILE PATH ERROR: {}'.format(', '.join(message)),
+              category='warning')
 
     return all_files_good
 
 
+def write_log_to_excel(log, xls_filename, sheet_name):
+    from openpyxl import load_workbook
+    from pandas import ExcelWriter, DataFrame
+
+    df = DataFrame(["'" + l for l in log.strip().splitlines()])
+
+    book = load_workbook(xls_filename)
+    writer = ExcelWriter(xls_filename, engine='openpyxl')
+    writer.book = book
+    writer.sheets = dict((ws.title, ws) for ws in book.worksheets)
+
+    df.to_excel(writer, sheet_name, index=False)
+    writer.save()
+
+
 if __name__ == "__main__":
-    app.run(debug=True, passthrough_errors=True)
+    pass

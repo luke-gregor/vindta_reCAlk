@@ -2,31 +2,33 @@
 <html style="position: relative; min-height: 100%;">
 <head>
 
-    <title>Hello from Flask</title>
+    <title>VINDTA recalculation</title>
     <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/user.css') }}?v=4" rel="stylesheet">
+    <link href="https://use.fontawesome.com/releases/v5.2.0/css/all.css" rel="stylesheet">
     <script type="text/javascript" src="{{ url_for('static', filename='js/jquery-3.2.1.min.js') }}"></script>
     <script type="text/javascript" src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
-    <script type="text/javascript" src="{{ url_for('static', filename='js/app.js') }}"></script>
 
 </head>
 
 <body style="margin-bottom: 60px; ">
     <header>
-        <h1 style="font-size: 7vw; font-weight: 800">VINDTA RECALCULATION</h1>
+        <a title="Go to GitHub for more information (https://github.com/luke-gregor/vindta_reCAlk)" class="text-dark" target="_blank" href="https://github.com/luke-gregor/vindta_reCAlk" style="text-decoration: none">
+            <h1 style="font-size: 6vw; font-weight: 800">VINDTA RECALCULATION</h1>
+        </a>
     </header>
 
+        {% with messages = get_flashed_messages(with_categories=True) %} {% if messages %} {% for category, message in messages %}
+            <div class="alert alert-{{category}}" role="alert" style="text-align: center; z-index: 5; border-radius: 0px;">
+                {{ message }}
+            </div>
+        {% endfor %} {% endif %} {% endwith %}
+
+
     <main class="container" role="main" style="max-width: 1200px; min-width: 800px;">
-    <form action="{{ url_for('home_page') }}" method="post" enctype=multipart/form-data>
+    <form action="{{ url_for('vindta.index') }}" method="post" enctype=multipart/form-data>
         <!-- FILE directories values -->
         <div class="col-12">
-            {% with messages = get_flashed_messages(with_categories=True) %} {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{category}}" role="alert">
-                        {{ message }}
-                    </div>
-                {% endfor %}
-            {% endif %} {% endwith %}
             <h2 style="float: left;">Input files</h2>
 
             <div style="clear: both"></div>
@@ -56,7 +58,7 @@
                     </div>
             </div>
 
-            <div class="run-code col-4 row" style="float: left; height: 128px; padding-left: 15px">
+            <div class="run-code col-4 row" style="float: left; height: 128px; padding-left: 15px; padding-right: 0px">
                 <div class="align-self-start" style="padding-bottom: 4px; height: 33%; width:100%">
                     <input class="btn btn-primary" type="submit" name='create_excel' value="Create Excel from DBS" style="height: 100%; width:100%">
                 </div>
@@ -69,11 +71,18 @@
             </div>
         </div>
 
-
         <!-- default values -->
         <div class="col-12" style="clear: both; padding-top: 10px">
             {% if dropdowns or header or number_defaults %}
-            <h2>Default values</h2>
+
+            <a class="row text-dark" href="#collapseDefaults" style="padding-left: 15px; text-decoration: none;"
+               onclick="$('#collapsed-chevron').toggleClass('fa-rotate-180')"
+               data-toggle="collapse" aria-expanded="true" aria-controls="collapseDefaults">
+
+                <h2 style="float: left">Default values</h2>
+                <i class="fa fa-lg fa-chevron-down align-self-center" id="collapsed-chevron" style="padding: 0px 20px"></i>
+            </a>
+            <div class="collapse show" id='collapseDefaults' style="clear: both;">
             <div class="default-options-box">
                 {% if dropdowns %} {% for key, value in dropdowns.items() %}
                 <div class="input-group mb-3 input-group-sm">
@@ -116,11 +125,15 @@
 
                 {% endif %}
             </div>
+            </div>
         </div>
 
     </form>
 
     {% if stdout %}
+        <script type="text/javascript">
+            $('#collapseDefaults').collapse('hide')
+        </script>
         <div class="col-12" style="clear: both">
             <h2>Processing log</h2>
             <div class="col-12">
