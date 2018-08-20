@@ -4,8 +4,17 @@ import os
 
 
 def read(fname):
-    print(fname)
-    return open(os.path.join(os.path.dirname(__file__), fname)).read()
+    fpath = os.path.join(os.path.dirname(__file__), fname)
+    return open(fpath).read()
+
+
+def find_version_from_readme():
+    s = read("README.md")
+    i0 = s.lower().find('version')
+    i1 = i0 + 20
+    v = s[i0:i1].splitlines()[0]  # removes next line
+    v = v.split(' ')[1]  # finds version number
+    return v
 
 
 def walker(base, *paths):
@@ -29,7 +38,7 @@ setup(
     name="vindta_reCAlk",
 
     # Version number (initial):
-    version="0.1.5",
+    version=find_version_from_readme(),
 
     # Application author details:
     author="Luke Gregor",
