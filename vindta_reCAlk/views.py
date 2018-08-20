@@ -1,6 +1,7 @@
-
+from __future__ import print_function, unicode_literals
 from flask import render_template, request, flash, Blueprint
 from .calcs import dbs_to_excel, recalculate_CO2_from_excel
+from io import open
 import os
 import traceback
 
@@ -90,7 +91,7 @@ def create_excel():
             elif "Invalid date found at" in str(e):
                 flash("DATE ERROR: " + str(e), category="warning")
             else:
-                raise(e)
+                print(e)
 
         # get output and restore sys.stdout
         output = sys.stdout.getvalue().strip()
@@ -153,7 +154,7 @@ def get_defaults():
             number_boxes[key] = defaults[key]
         elif type(defaults[key]) is list:
             dropdown[key] = defaults[key]
-        elif key is 'header':
+        elif key == 'header':
             header = defaults[key]
 
     return number_boxes, dropdown, header

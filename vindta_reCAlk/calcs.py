@@ -1,7 +1,8 @@
 #!/usr/local/bin/env python
 # -*- coding: utf-8 -*-
 
-from __future__ import print_function as _print_function
+from __future__ import print_function, unicode_literals
+from io import open
 import warnings as _warnings
 import pandas as pd
 import os
@@ -177,12 +178,11 @@ def recalculate_CO2_from_excel(xls_filename):
         Note that this function should only be used once you have run the
         VINDTA_recALK.dbs_to_excel. You need to fill in the in-situ
         temperature, salinity, and nutrient data.
-        """.replace('  ', '')[1:])
+        \n""".replace('  ', '')[1:])
 
     df = pd.read_excel(xls_filename, 'initial_calc')
 
     df = calc_crm_acidconc(df)
-    print()
     df.loc[:, 'factorCT'] = df.CRMCT / df.DIC
     df = get_batch_indicies(df)
 
@@ -238,8 +238,7 @@ def recalculate_CO2_from_excel(xls_filename):
 
     df.to_excel(writer, 'reculculated', index=False)
     writer.save()
-    print('=' * 60)
-    print()
+    print('=' * 60 + '\n')
 
     time_saved = df.calcID.sum() * 0.75 / 60.
     print('vindta_reCAlk saved you more than {} hours of your life'.format(time_saved))
@@ -316,7 +315,9 @@ def calc_crm_acidconc(df):
                         df.loc[i, 'acidconcL'] = np.NaN
                         break
                 if df.calcID[i] < 30:
-                    print(bot_print, 'after', int(df['calcID'][i]), 'iterations')
+                    txt = '{} after {}  iterations'.format(
+                        bot_print, df['calcID'][i])
+                    print(txt)
                 else:
                     print(bot_print, 'acid factor not converging after 30 iterations. Values set to NaN')
             except ValueError as e:
@@ -408,7 +409,7 @@ def recalcAlk_leastsq(sal, tempC, po4, si, samplevol, acidconcKG, aciddens, Vols
         """
 
         if (S < 5) | np.isnan(S):  # Seawater sample
-            _warnings.warn("Sample has salinity < 5 PSU or NaN")
+            print(": Sample has salinity < 5 PSU or NaN", end='')
 
         W0 = V0 * DensSW(S, T)  # mass of sample titrated [g]
         # values for total concentrations (output global)

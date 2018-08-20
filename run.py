@@ -13,4 +13,4 @@ if __name__ == "__main__":
     url = "http://localhost:{:d}/".format(port)
     threading.Timer(2, lambda: webbrowser.open(url)).start()
 
-    app.run(port=port, debug=False)
+    app.run(port=port, debug=True)
