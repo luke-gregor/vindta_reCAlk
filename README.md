@@ -21,7 +21,7 @@ The banner at the top of the app will provide instructions for the general usage
 
 ABOUT
 -----
-- Version: 0.1.7
+- Version: 0.1.8
 - Author:  Luke Gregor
 - Email:   lukegre@gmail.com
 - Date:    2018-08-18
@@ -31,6 +31,8 @@ Please acknkowledge this code when you use it.
 
 CHANGE LOG
 ----------
-- **V0.1.4** updated README file.
-- **V0.1.6** added favicons
+- **V0.1.8** Fixed `openpyxl` error (can only read `xlsx` and not `xls`)
 - **V0.1.7** Python 2 and 3 compatibility issues fixed
+- **V0.1.6** added favicons
+- **V0.1.5** security update
+- **V0.1.4** updated README file.

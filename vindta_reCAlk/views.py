@@ -264,9 +264,9 @@ def check_file_paths(filename_dict):
             all_files_good = False
             message += 'DAT path does not contain .dat files',
 
-    if (not (xls.endswith('.xlsx') | xls.endswith('.xls'))):
+    if not (xls.endswith('.xlsx'):
         all_files_good = False
-        message += 'Excel file path must end with .xls or .xlsx',
+        message += 'Excel file path must end with .xlsx',
     elif not os.path.isdir(os.path.split(xls)[0]):
         all_files_good = False
         message += 'Excel root path does not exist.',
