@@ -11,6 +11,6 @@ if __name__ == "__main__":
     port = 5000
 
     url = "http://localhost:{:d}/".format(port)
-    threading.Timer(1.25, lambda: webbrowser.open(url)).start()
+    threading.Timer(2, lambda: webbrowser.open(url)).start()
 
-    app.run(port=port, debug=True)
+    app.run(port=port, debug=False)
