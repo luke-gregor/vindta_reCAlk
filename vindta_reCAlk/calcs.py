@@ -181,6 +181,7 @@ def recalculate_CO2_from_excel(xls_filename):
         \n""".replace('  ', '')[1:])
 
     df = pd.read_excel(xls_filename, 'initial_calc')
+    df = df.sort_values('analysis_date')
 
     df = calc_crm_acidconc(df)
     df.loc[:, 'factorCT'] = df.CRMCT / df.DIC
